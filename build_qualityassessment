@@ -1,0 +1,11 @@
+#CC = g++
+#CFLAGS = -c -fPIC 
+#PROG = changeViewOrientation
+#SULFIX1 =.o
+#SULFIX2 =.cpp
+
+#$(CC) $(CFLAGS) $(SRC) $(SULFIX2) -o $(SRC) $(SULFIX1)
+
+
+g++ -c -fPIC qualityassessment.cpp `pkg-config opencv --libs --cflags` -o ../bin/qualityassessment.o 
+g++ -shared -o ../bin/libqualityassessment.so ../bin/qualityassessment.o
