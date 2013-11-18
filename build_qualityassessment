@@ -7,5 +7,5 @@
 #$(CC) $(CFLAGS) $(SRC) $(SULFIX2) -o $(SRC) $(SULFIX1)
 
 
-g++ -c -fPIC qualityassessment.cpp `pkg-config opencv --libs --cflags` -o ../bin/qualityassessment.o 
-g++ -shared -o ../bin/libqualityassessment.so ../bin/qualityassessment.o
+g++ -c -fPIC qualityassessment.h `pkg-config opencv --libs --cflags` -o ../bin/qualityassessment.o 
+#g++ -shared -o ../bin/libqualityassessment.so ../bin/qualityassessment.o

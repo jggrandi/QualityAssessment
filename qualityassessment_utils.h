@@ -1,6 +1,16 @@
 #ifndef QUALITY_ASSESSMENT_UTILS
 #define QUALITY_ASSESSMENT_UTILS
 
+#include <cstdlib>
+
+#include <opencv2/imgproc/imgproc.hpp>  // Gaussian Blur
+#include <opencv2/core/core.hpp>        // Basic OpenCV structures (cv::Mat, Scalar)
+#include <opencv2/highgui/highgui.hpp>  // OpenCV window I/O
+#include <opencv2/features2d/features2d.hpp>
+#include <opencv2/nonfree/nonfree.hpp>
+#include <opencv2/gpu/gpu.hpp> 
+
+using namespace cv;
 
 struct BufferPSNR                                     // Optimized GPU versions
 {   // Data allocations are very expensive on GPU. Use a buffer to solve: allocate once reuse later.
