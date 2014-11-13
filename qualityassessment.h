@@ -24,31 +24,47 @@
 
 using namespace cv;
 
+
 class QualityAssessment
 {
 public:
 	QualityAssessment(){}
 	~QualityAssessment(){}
-	Scalar getPSNR(  const char *img1_data, const char *img2_data, const int width, const int height)
+
+
+	 /* MSE(a,b) = 1/N * SUM((a-b)^2) */
+	template <class D>
+	float getMSE(const D *ref, const D *cmp, const int w, const int h, const int stride)
 	{
-	    int i, j;
-	    double error, pix, x;
-	    Scalar psnr;
+		int error, offset;
+		unsigned long long sum=0;
+		int ww,hh;
+		for (hh=0; hh<h; hh++) 
+		{
+			offset = hh*stride;
+			for (ww=0; ww<w; ww++, offset++) 
+			{	
+				error = ref[offset] - cmp[offset];
+				sum += error * error;
+			}
+		}
+		if(sum==0)
+			return 0;
 
-	    /* calculating distortion */
-	    error = 0.0;
-	    pix = (double)width*(double)height;
-	    for(i=0;i<width;i++)
-	    {
-	        for(j=0;j<height;j++)
-	        {
-	            x = (double)img1_data[ijn(i,j,width)] - (double)img2_data[ijn(i,j,width)];
-	            error += ((x * x) / pix);
-	        }
-	    }
-	    psnr.val[0] = 10.0 * log10((255.0*255.0)/error);
+		return (float)( (double)sum / (double)(w*h) );
+	}
 
-	    return psnr;		
+	/* PSNR(a,b) = 10*log10(L^2 / MSE(a,b)), where L=2^b - 1 (8bit = 255) */
+	template <class D>
+	Scalar getPSNR(  const D *img1_data, const D *img2_data, const int w, const int h, const int stride)
+	{
+		const int L_sqd = 255 * 255;
+		Scalar psnr;
+		float mse_result = getMSE(img1_data,img2_data,w,h,stride);
+		if (mse_result == 0)
+			return 0;
+		psnr.val[0] = (float)( 10.0 * log10( L_sqd / mse_result) );		
+		return psnr;
 	}
 
 	
@@ -67,10 +83,13 @@ public:
 	        return 0;
 	    else
 	    {
-	        double  mse =sse /(double)(i1.channels() * i1.total());
-	        Scalar psnr;
-			psnr.val[0]= 10.0*log10((255*255)/mse);
-	        return psnr;
+	    	Scalar mse;
+	    	 mse.val[0] = sse /(double)(i1.channels());// * i1.total());
+	    	 return mse;
+	  //       double  mse =sse /(double)(i1.channels() * i1.total());
+	  //       Scalar psnr;
+			// psnr.val[0]= 10.0*log10((255*255)/mse);
+	  //       return psnr;
 	    }		
 	}
 
@@ -189,12 +208,15 @@ public:
 	        return 0;
 	    else
 	    {
-	        double mse = sse /(double)(i1.channels());// * I1.total());
-	        //double psnr = 10.0*log10((255*255)/mse);
+	    	Scalar mse;
+	    	mse.val[0] = sse /(double)(i1.channels());// * I1.total());
+			return mse;
+	        //double mse = sse /(double)(i1.channels());// * I1.total());
+	       
 
-	        Scalar psnr;
-			psnr.val[0]= 10.0*log10((255*255)/mse);
-	        return psnr;
+	  //       Scalar psnr;
+			// psnr.val[0]= 10.0*log10((255*255)/mse);
+	  //       return psnr;
 	    }
 	}
 
