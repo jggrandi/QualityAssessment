@@ -10,7 +10,28 @@
 #include <opencv2/nonfree/nonfree.hpp>
 #include <opencv2/gpu/gpu.hpp> 
 
+
+#include "itkImage.h"
+#include "itkImportImageFilter.h"
+#include "itkJoinImageFilter.h"
+#include "itkImageToHistogramFilter.h"
+
+
+#define ijn(a,b,n) ((a)*(n))+b
+
+#define GB_R 10.5 //used in tests
+#define GB_S 31  //used in tests
+
+// #define GB_R 1.5 //original
+// #define GB_S 11  //original
+
+// #define GB_R 0.5 //used in tests
+// #define GB_S 3  //used in tests
+
+
 using namespace cv;
+
+
 
 struct BufferPSNR                                     // Optimized GPU versions
 {   // Data allocations are very expensive on GPU. Use a buffer to solve: allocate once reuse later.

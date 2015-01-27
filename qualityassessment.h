@@ -6,23 +6,8 @@
 #ifndef QUALITY_ASSESSMENT
 #define QUALITY_ASSESSMENT
 
-#include <cstdlib>
-
-#include <opencv2/imgproc/imgproc.hpp>  // Gaussian Blur
-#include <opencv2/core/core.hpp>        // Basic OpenCV structures (cv::Mat, Scalar)
-#include <opencv2/highgui/highgui.hpp>  // OpenCV window I/O
-#include <opencv2/features2d/features2d.hpp>
-#include <opencv2/nonfree/nonfree.hpp>
-#include <opencv2/gpu/gpu.hpp> 
 
 #include "qualityassessment_utils.h"
-
-#define ijn(a,b,n) ((a)*(n))+b
-#define GB_R 10.5 //used in tests
-#define GB_S 31  //used in tests
-
-
-using namespace cv;
 
 
 class QualityAssessment
@@ -92,9 +77,14 @@ public:
 	  //       return psnr;
 	    }		
 	}
-
-	Scalar getMSSIM( const Mat& i1, const Mat& i2)
+	template <class D>
+	Scalar getMSSIM( const D *ref, const D *cmp, int resW, int resH)
+//	Scalar getMSSIM( const Mat& i1, const Mat& i2)
 	{
+
+	    Mat i1(resW,resH,CV_16UC1, ref);
+	    Mat i2(resW,resH,CV_16UC1, cmp);
+
 	    const double C1 = 6.5025, C2 = 58.5225;
 	    /***************************** INITS **********************************/
 	    int d     = CV_32F;
@@ -288,6 +278,153 @@ public:
 	        mssim.val[i] = s.val[0] / (bufferMSSIM.ssim_map.rows * bufferMSSIM.ssim_map.cols);
 	    }
 	    return mssim;		
+	}
+
+	
+	template <class D>
+	Scalar getMutualInformation(const D *ref, const D *cmp, int resW, int resH)
+	{
+
+		const unsigned int Dimension = 2;
+		typedef unsigned short imgT;
+		typedef itk::Image< imgT, Dimension > ImageType;
+		typedef itk::ImportImageFilter< imgT, Dimension >   ImportFilterType;
+		ImportFilterType::Pointer imgRef = ImportFilterType::New();
+		ImportFilterType::Pointer imgComp= ImportFilterType::New();
+		ImportFilterType::SizeType  sizeImg;
+		sizeImg[0]  = resW;  // size along X
+		sizeImg[1]  = resH;  // size along Y
+		const itk::SpacePrecisionType  spacing[ Dimension ] =  { 1.0, 1.0};
+		const itk::SpacePrecisionType origin[ Dimension ] = { 0.0, 0.0};
+		ImportFilterType::IndexType start;
+		ImportFilterType::RegionType region;
+		start.Fill( 0 );
+		region.SetIndex( start );
+		region.SetSize(  sizeImg  );
+		imgRef->SetRegion( region );
+		imgComp->SetRegion( region );
+		imgRef->SetOrigin( origin );
+		imgComp->SetOrigin( origin );
+		imgRef->SetSpacing( spacing );
+		imgComp->SetSpacing( spacing );
+
+		const bool importImageFilterWillOwnTheBuffer = false;
+		const unsigned int numberOfPixels =  resW*resH;    
+		imgRef->SetImportPointer( ref, numberOfPixels ,importImageFilterWillOwnTheBuffer );
+		imgRef->Update();
+		imgComp->SetImportPointer( cmp, numberOfPixels ,importImageFilterWillOwnTheBuffer );
+		imgComp->Update();
+
+
+		typedef itk::JoinImageFilter< ImageType, ImageType >  JoinFilterType;
+		JoinFilterType::Pointer joinFilter = JoinFilterType::New();
+		joinFilter->SetInput1( imgRef->GetOutput() );
+		joinFilter->SetInput2( imgComp->GetOutput() );
+
+		try
+		{
+		joinFilter->Update();
+		}
+		catch( itk::ExceptionObject & excp )
+		{
+		std::cerr << excp << std::endl;
+		return -1;
+		}
+
+		typedef JoinFilterType::OutputImageType VectorImageType;
+		typedef itk::Statistics::ImageToHistogramFilter<VectorImageType >  HistogramFilterType;
+		HistogramFilterType::Pointer histogramFilter = HistogramFilterType::New();
+		histogramFilter->SetInput(  joinFilter->GetOutput()  );
+		histogramFilter->SetMarginalScale( 10.0 );
+		typedef HistogramFilterType::HistogramSizeType   HistogramSizeType;
+		HistogramSizeType size( 2 );
+		size[0] = 128;  // number of bins for the first  channel
+		size[1] = 128;  // number of bins for the second channel
+
+		histogramFilter->SetHistogramSize( size );
+		typedef HistogramFilterType::HistogramMeasurementVectorType
+		HistogramMeasurementVectorType;
+		HistogramMeasurementVectorType binMinimum( 3 );
+		HistogramMeasurementVectorType binMaximum( 3 );
+		binMinimum[0] = -0.5;
+		binMinimum[1] = -0.5;
+		binMinimum[2] = -0.5;
+		binMaximum[0] = 128.5;
+		binMaximum[1] = 128.5;
+		binMaximum[2] = 128.5;
+		histogramFilter->SetHistogramBinMinimum( binMinimum );
+		histogramFilter->SetHistogramBinMaximum( binMaximum );
+		histogramFilter->Update();
+
+		typedef HistogramFilterType::HistogramType  HistogramType;
+		const HistogramType * histogram = histogramFilter->GetOutput();
+		HistogramType::ConstIterator itr = histogram->Begin();
+		HistogramType::ConstIterator end = histogram->End();
+		const double Sum = histogram->GetTotalFrequency();
+
+		double JointEntropy = 0.0;
+		while( itr != end )
+		{
+		const double count = itr.GetFrequency();
+		if( count > 0.0 )
+		  {
+		  const double probability = count / Sum;
+		  JointEntropy +=
+		    - probability * std::log( probability ) / std::log( 2.0 );
+		  }
+		++itr;
+		}
+
+		size[0] = 128;  // number of bins for the first  channel
+		size[1] =   1;  // number of bins for the second channel
+		histogramFilter->SetHistogramSize( size );
+		histogramFilter->Update();
+
+		itr = histogram->Begin();
+		end = histogram->End();
+		double Entropy1 = 0.0;
+		while( itr != end )
+		{
+		const double count = itr.GetFrequency();
+		if( count > 0.0 )
+		  {
+		  const double probability = count / Sum;
+		  Entropy1 += - probability * std::log( probability ) / std::log( 2.0 );
+		  }
+		++itr;
+		}
+
+		size[0] =   1;  // number of bins for the first channel
+		size[1] = 128;  // number of bins for the second channel
+		histogramFilter->SetHistogramSize( size );
+		histogramFilter->Update();
+
+		itr = histogram->Begin();
+		end = histogram->End();
+		double Entropy2 = 0.0;
+		while( itr != end )
+		{
+		const double count = itr.GetFrequency();
+		if( count > 0.0 )
+		  {
+		  const double probability = count / Sum;
+		  Entropy2 += - probability * std::log( probability ) / std::log( 2.0 );
+		  }
+		++itr;
+		}
+
+		//double MutualInformation = Entropy1 + Entropy2 - JointEntropy;
+
+		//double NormalizedMutualInformation1 = 2.0 * MutualInformation / ( Entropy1 + Entropy2 );
+
+		double NormalizedMutualInformation2 = ( Entropy1 + Entropy2 ) / JointEntropy;
+
+
+		//std::cout << NormalizedMutualInformation2 <<  std::endl;
+
+		Scalar MI;
+		MI.val[0] = NormalizedMutualInformation2;
+		return MI;
 	}
 
 
