@@ -280,14 +280,22 @@ public:
 	    return mssim;		
 	}
 
-	
+
 	template <class D>
 	Scalar getMutualInformation(const D *ref, const D *cmp, int resW, int resH)
 	{
 
-		const unsigned int Dimension = 2;
+
+
+
+
+		typedef   double InternalPixelType; //floats
 		typedef unsigned short imgT;
-		typedef itk::Image< imgT, Dimension > ImageType;
+		const unsigned int Dimension = 2;
+		typedef itk::Image< imgT, Dimension > ImageType;	
+		typedef itk::Image< InternalPixelType, Dimension > InternalImageType;
+		
+		//Import RAW images to ITK data structure
 		typedef itk::ImportImageFilter< imgT, Dimension >   ImportFilterType;
 		ImportFilterType::Pointer imgRef = ImportFilterType::New();
 		ImportFilterType::Pointer imgComp= ImportFilterType::New();
@@ -307,7 +315,6 @@ public:
 		imgComp->SetOrigin( origin );
 		imgRef->SetSpacing( spacing );
 		imgComp->SetSpacing( spacing );
-
 		const bool importImageFilterWillOwnTheBuffer = false;
 		const unsigned int numberOfPixels =  resW*resH;    
 		imgRef->SetImportPointer( ref, numberOfPixels ,importImageFilterWillOwnTheBuffer );
@@ -315,6 +322,50 @@ public:
 		imgComp->SetImportPointer( cmp, numberOfPixels ,importImageFilterWillOwnTheBuffer );
 		imgComp->Update();
 
+
+
+  		// writer->SetFileName( "img_original.nhdr" );
+  		// writer->SetInput( imgRef->GetOutput() );
+  		// writer->Update();
+	
+		// // Normalize the images
+		// typedef itk::NormalizeImageFilter<ImageType, InternalImageType> NormalizeFilterType;
+		// NormalizeFilterType::Pointer nImgRef = NormalizeFilterType::New();
+		// NormalizeFilterType::Pointer nImgComp = NormalizeFilterType::New();
+		// nImgRef->SetInput(  imgRef->GetOutput());
+		// nImgComp->SetInput( imgComp->GetOutput());
+
+  // 		writer->SetFileName( "img_normalized.nhdr" );
+  // 		writer->SetInput( nImgRef->GetOutput() );
+  // 		writer->Update();
+
+	
+		// // Smooth the normalized images
+		// typedef itk::DiscreteGaussianImageFilter<ImageType,ImageType> GaussianFilterType;
+		// GaussianFilterType::Pointer smoothImgRef  = GaussianFilterType::New();
+		// GaussianFilterType::Pointer smoothImgComp = GaussianFilterType::New();
+		// smoothImgRef->SetVariance( 2.0 );
+		// smoothImgComp->SetVariance( 2.0 );
+		// smoothImgRef->SetInput( imgRef->GetOutput() );
+		// smoothImgComp->SetInput( imgComp->GetOutput() );
+
+ 		// typedef itk::RescaleIntensityImageFilter< ImageType, ImageType > RescaleFilterType;
+ 		// typedef itk::ImageFileWriter< ImageType >  WriterType;
+  	// 	WriterType::Pointer writer = WriterType::New();
+
+	
+		// RescaleFilterType::Pointer rescaleFilter = RescaleFilterType::New();
+		// rescaleFilter->SetInput(smoothImgRef->GetOutput());
+		// rescaleFilter->SetOutputMinimum(0);
+		// rescaleFilter->SetOutputMaximum(65535);
+		// rescaleFilter->Update();
+
+		// writer->SetInput(smoothImgRef->GetOutput());
+		// writer->SetFileName("outxmo.nhdr");
+		// writer->Update();
+
+		// exit(0);
+		
 
 		typedef itk::JoinImageFilter< ImageType, ImageType >  JoinFilterType;
 		JoinFilterType::Pointer joinFilter = JoinFilterType::New();
@@ -338,20 +389,20 @@ public:
 		histogramFilter->SetMarginalScale( 10.0 );
 		typedef HistogramFilterType::HistogramSizeType   HistogramSizeType;
 		HistogramSizeType size( 2 );
-		size[0] = 128;  // number of bins for the first  channel
-		size[1] = 128;  // number of bins for the second channel
+		size[0] = 255;  // number of bins for the first  channel
+		size[1] = 255;  // number of bins for the second channel
 
 		histogramFilter->SetHistogramSize( size );
 		typedef HistogramFilterType::HistogramMeasurementVectorType
 		HistogramMeasurementVectorType;
 		HistogramMeasurementVectorType binMinimum( 3 );
 		HistogramMeasurementVectorType binMaximum( 3 );
-		binMinimum[0] = -0.5;
-		binMinimum[1] = -0.5;
-		binMinimum[2] = -0.5;
-		binMaximum[0] = 128.5;
-		binMaximum[1] = 128.5;
-		binMaximum[2] = 128.5;
+		binMinimum[0] = 0.3;
+		binMinimum[1] = 0.3;
+		binMinimum[2] = 0.3;
+		binMaximum[0] = 0.8;
+		binMaximum[1] = 0.8;
+		binMaximum[2] = 0.8;
 		histogramFilter->SetHistogramBinMinimum( binMinimum );
 		histogramFilter->SetHistogramBinMaximum( binMaximum );
 		histogramFilter->Update();
@@ -375,7 +426,7 @@ public:
 		++itr;
 		}
 
-		size[0] = 128;  // number of bins for the first  channel
+		size[0] = 32;  // number of bins for the first  channel
 		size[1] =   1;  // number of bins for the second channel
 		histogramFilter->SetHistogramSize( size );
 		histogramFilter->Update();
@@ -395,7 +446,7 @@ public:
 		}
 
 		size[0] =   1;  // number of bins for the first channel
-		size[1] = 128;  // number of bins for the second channel
+		size[1] = 32;  // number of bins for the second channel
 		histogramFilter->SetHistogramSize( size );
 		histogramFilter->Update();
 
@@ -413,17 +464,17 @@ public:
 		++itr;
 		}
 
-		//double MutualInformation = Entropy1 + Entropy2 - JointEntropy;
+		double MutualInformation = Entropy1 + Entropy2 - JointEntropy;
 
-		//double NormalizedMutualInformation1 = 2.0 * MutualInformation / ( Entropy1 + Entropy2 );
+		double NormalizedMutualInformation1 = 2.0 * MutualInformation / ( Entropy1 + Entropy2 );
 
-		double NormalizedMutualInformation2 = ( Entropy1 + Entropy2 ) / JointEntropy;
+		//double NormalizedMutualInformation2 = ( Entropy1 + Entropy2 ) / JointEntropy;
 
 
 		//std::cout << NormalizedMutualInformation2 <<  std::endl;
 
 		Scalar MI;
-		MI.val[0] = NormalizedMutualInformation2;
+		MI.val[0] = NormalizedMutualInformation1;
 		return MI;
 	}
 

@@ -15,7 +15,10 @@
 #include "itkImportImageFilter.h"
 #include "itkJoinImageFilter.h"
 #include "itkImageToHistogramFilter.h"
-
+#include "itkNormalizeImageFilter.h"
+#include "itkDiscreteGaussianImageFilter.h"
+#include "itkImageFileWriter.h"
+#include "itkRescaleIntensityImageFilter.h"
 
 #define ijn(a,b,n) ((a)*(n))+b
 
